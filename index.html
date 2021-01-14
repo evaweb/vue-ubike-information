@@ -6,7 +6,7 @@
   <title>YouBike 臺北市公共自行車即時資訊</title>
 
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
-
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
   <style>
     body{ padding: 1em;  }
   </style>
@@ -17,35 +17,206 @@
   <h1>YouBike 臺北市公共自行車即時資訊</h1>
 
   <div id="app">
+    <input type="text" placeholder="請輸入區域名稱" class="form-control mb-2" v-model="searchName ">
+    
+    <nav>
+      <ul class="pagination">
+        <li v-show="pagination.isPrevShow"><a href="javascript:;" @click="prev"><i class="fa fa-angle-left" aria-hidden="true"></i></a></li>
+        <li v-for="num in pagination.paginationNum"><a href="javascript:;" @click="goto(num)">{{ num + pagination.go }}</a></li>
+        <li v-show="pagination.isNextShow"><a href="javascript:;" @click="next"><i class="fa fa-angle-right" aria-hidden="true"></i></a></li>
+      </ul>
+    </nav>
 
     <table class="table table-striped">
       <thead>
         <tr>
           <th>#</th>
           <th>場站名稱</th>
-          <th>場站區域</th>
-          <th>目前可用車輛</th>
-          <th>總停車格</th>
-          <th>資料更新時間</th>
+          <th class="text-center">場站區域</th>
+          <th class="text-center">目前可用車輛
+            <a href="javascript:;" class="none-sort" @click="sort('sbi','sort')" v-if="isSortShow['sbi']" ><i class="fa fa-sort" aria-hidden="true"></i></a>
+            <a href="javascript:;" class="none-asc" @click="sort('sbi','asc')" v-else-if="isSortAceShow['sbi']"><i class="fa fa-sort-numeric-asc" aria-hidden="true"></i></a>
+            <a href="javascript:;" class="none-desc" @click="sort('sbi','desc')" v-else ><i class="fa fa-sort-numeric-desc" aria-hidden="true"></i></a>
+          </th>
+          <th class="text-center">總停車格
+            <a href="javascript:;" class="none-sort" @click="sort('tot','sort')" v-if="isSortShow['tot']"><i class="fa fa-sort" aria-hidden="true"></i></a>
+            <a href="javascript:;" class="none-asc" @click="sort('tot','asc')" v-else-if="isSortAceShow['tot']"><i class="fa fa-sort-numeric-asc" aria-hidden="true"></i></a>
+            <a href="javascript:;" class="none-desc" @click="sort('tot','desc')" v-else><i class="fa fa-sort-numeric-desc" aria-hidden="true"></i></a>
+          </th>
+          <th class="text-center">資料更新時間</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="s in ubikeStops">
-          <td>{{ s.sno }}</td>
-          <td>{{ s.sna }}</td>
-          <td>{{ s.sarea }}</td>
-          <td>{{ s.sbi }}</td>
-          <td>{{ s.tot }}</td>
-          <td>{{ timeFormat(s.mday) }}</td>
-        </tr>
+        <template v-for="s in filterSearch">
+          <tr :data-value="s.sno">
+            <td>{{ s.sno }}</td>
+            <td>{{ s.sna }}</td>
+            <td class="text-center">{{ s.sarea }}</td>
+            <td class="text-center">{{ s.sbi }}</td>
+            <td class="text-center">{{ s.tot }}</td>
+            <td class="text-center"><span class="mday">{{ mday(s.mday) }}</span> <span class="mtime">{{ mTime(s.mday) }}</span></td>
+          </tr>
+        </template>
       </tbody>
 
     </table>
-
+    
   </div>
 
   <script src="https://unpkg.com/vue@next"></script>
-  <script src="./scripts.js?v=2020081401"></script>
+  <!-- <script src="./scripts.js?v=2020081401"></script> -->
+  <style>
+    .pagination li a{
+      display: block;
+      padding:5px;
+    }
+  </style>
+  <script>
+   const app = Vue.createApp({
+     data() {
+       return {
+        ubikeStops: [],
+        pageUbikeStops:[],
+        pagination: {
+          paginationNum: 5, //頁碼一次顯示幾筆
+          listNum: 10,// 一頁顯示幾筆
+          go: 0,
+          total: 0,// 總共幾頁
+          now: 1,// 目前所在頁
+          minNum: 1,// 第一格頁碼
+          maxNum: 1,// 最後一格頁碼
+          isPrevShow: false,
+          isNextShow: true
+        },
+        searchName : '',
+        isSortShow: {
+          'sbi': true,
+          'tot': true,
+        },
+        isSortAceShow: {
+          'sbi': false,
+          'tot': false,
+        }
+       }
+     },
+     methods:{
+       mday(format) {
+         return `${format.substring(0,4)}/${format.substring(4,6)}/${format.substring(6,8)}`;
+       },
+       mTime(format) {
+         return `${format.substring(8,10)}:${format.substring(10,12)}:${format.substring(12,14)}`;
+       },
+       sort(d, type) {
+        const length = Object.keys(this.isSortShow).length;
+        let keyArr = Object.keys(this.isSortShow);
+        switch (type){
+          case 'sort':
+            for ( i = 0; i < length ; i++){
+              let key = keyArr[i];
+              if(key == d){
+                this.isSortShow[key] = false;
+                this.isSortAceShow[key] = true;
+              } else {
+                this.isSortShow[key] = true;
+                this.isSortAceShow[key] = false;
+              }
+            }
+            this.ubikeStops.sort((a,b) => a[d] - b[d])
+            break;
+          case 'asc':
+            for ( i = 0; i < length ; i++){
+              let key = keyArr[i];
+              if(key == d){
+                this.isSortShow[key] = false;
+                this.isSortAceShow[key] = false;
+              } else {
+                this.isSortShow[key] = true;
+                this.isSortAceShow[key] = false;
+              }
+            }
+            this.ubikeStops.sort((a,b) => b[d] - a[d])
+            break;
+          default :
+            for ( i = 0; i < length ; i++){
+              let key = keyArr[i];
+              this.isSortShow[key] = true;
+              this.isSortAceShow[key] = false;
+            }
+            this.ubikeStops.sort((a,b) => a['sno'] - b['sno'] )
+            break;
+        }
+        this.pageUbikeStops = pagesArr( this.ubikeStops, this.pagination.total, this.pagination.listNum);
+       },
+       goto(num){
+        
+       },
+       next(){
+         const max = this.pagination.maxNum + this.pagination.go;
+         console.log(this.pagination.total , max)
+         if(this.pagination.total > max){
+          this.pagination.go = this.pagination.go + this.pagination.paginationNum;
+          this.pagination.minNum = this.pagination.minNum + this.pagination.go;
+          this.pagination.isPrevShow = true;
+          this.pagination.maxNum = max > this.pagination.total ? this.pagination.total : max;
+         }
+         
+       },
+       filterSearch(){
+          const filterArr = [...this.ubikeStops];
+          
+          return filterArr.filter(d => {
+            return d.sna.includes(this.searchName);
+          });
+       }
+     },
+     computed:{
+      filterSearch(){
+        if(this.searchName == ''){
+          if( this.pageUbikeStops != '') return this.pageUbikeStops[0].data;
+        } else {
+          const filterArr = [...this.ubikeStops];
+          
+          return filterArr.filter(d => {
+            return d.sna.includes(this.searchName);
+          });
+        }
+      }
+     },
+    created() {
 
+      // 欄位說明請參照:
+      // http://data.taipei/opendata/datalist/datasetMeta?oid=8ef1626a-892a-4218-8344-f7ac46e1aa48
+
+      // sno：站點代號、 sna：場站名稱(中文)、 tot：場站總停車格、
+      // sbi：場站目前車輛數量、 sarea：場站區域(中文)、 mday：資料更新時間、
+      // lat：緯度、 lng：經度、 ar：地(中文)、 sareaen：場站區域(英文)、
+      // snaen：場站名稱(英文)、 aren：地址(英文)、 bemp：空位數量、 act：全站禁用狀態
+
+      fetch('https://tcgbusfs.blob.core.windows.net/blobyoubike/YouBikeTP.gz')
+        .then(res => res.json())
+        .then(res => {
+            // 將 json 轉陣列後存入 this.ubikeStops
+            this.ubikeStops = Object.keys(res.retVal).map(key => res.retVal[key]);
+            if(this.ubikeStops != '') {
+              this.pagination.total = Math.ceil(this.ubikeStops.length / this.pagination.listNum);
+              this.pagination.maxNum = this.pagination.total > this.pagination.paginationNum ? this.pagination.paginationNum : this.pagination.total;
+              this.pageUbikeStops = pagesArr( this.ubikeStops, this.pagination.total, this.pagination.listNum);
+              
+            }
+        });
+
+      }
+   }).mount('#app');
+   function pagesArr(arr,total,listNum){
+    const ans = [];
+    for(i=0; i< total; i++ ){
+      ans.push({num:i+1, data:[]});
+      for(j=(listNum*i); j< listNum +(listNum*i); j++){
+        ans[i].data.push(arr[j]);
+      }
+    }
+    return ans;
+   }
+  </script>
 </body>
 </html>
